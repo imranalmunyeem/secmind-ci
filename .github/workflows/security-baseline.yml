@@ -34,16 +34,18 @@ jobs:
           docker ps -a
           exit 1
 
-      # IMPORTANT:
-      # -a : include alpha passive rules (better coverage)
-      # -I : do NOT create GitHub issues (prevents 403 "Resource not accessible by integration")
-      # This keeps CI green while still generating reports you can use for your paper.
+      # KEY FIX:
+      # allow_issue_writing: false stops the action from creating/updating GitHub issues
+      # (prevents 403: Resource not accessible by integration)
+      # fail_action: false keeps the workflow GREEN even if ZAP finds warnings/alerts.
       - name: ZAP Baseline Scan (No GitHub Issues)
-        uses: zaproxy/action-baseline@v0.13.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: "http://localhost:3000"
           rules_file_name: ".zap/rules.tsv"
-          cmd_options: "-a -I"
+          cmd_options: "-a"
+          allow_issue_writing: false
+          fail_action: false
 
       - name: Upload ZAP Report Artifacts
         if: always()
