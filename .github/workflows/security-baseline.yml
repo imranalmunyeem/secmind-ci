@@ -34,10 +34,6 @@ jobs:
           docker ps -a
           exit 1
 
-      # KEY FIX:
-      # allow_issue_writing: false stops the action from creating/updating GitHub issues
-      # (prevents 403: Resource not accessible by integration)
-      # fail_action: false keeps the workflow GREEN even if ZAP finds warnings/alerts.
       - name: ZAP Baseline Scan (No GitHub Issues)
         uses: zaproxy/action-baseline@v0.15.0
         with:
@@ -47,15 +43,26 @@ jobs:
           allow_issue_writing: false
           fail_action: false
 
-      - name: Upload ZAP Report Artifacts
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Generate dataset (ZAP JSON -> JSONL)
+        run: |
+          mkdir -p dataset/specs
+          python scanner/zap/parse_zap_json.py report_json.json dataset/specs/zap_findings.jsonl "${{ github.run_id }}"
+
+      - name: Upload ZAP Reports + Dataset
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zap-baseline-report
+          name: zap-baseline-report-and-dataset
           path: |
             report_html.html
             report_json.json
             report_md.md
+            dataset/specs/zap_findings.jsonl
 
       - name: Stop Juice Shop
         if: always()
