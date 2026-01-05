@@ -1,0 +1,3 @@
+# zap-baseline rule configuration
+# Format: <rule_id>    <action>    <comment>
+# action can be: IGNORE, WARN, FAIL
