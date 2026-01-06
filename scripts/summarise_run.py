@@ -32,22 +32,15 @@ def summarise(all_findings_jsonl: Path,
              tests_generated_total: int,
              zap_seconds: float,
              pipeline_seconds: float):
-    if not all_findings_jsonl.exists():
-        print(f"JSONL not found: {all_findings_jsonl}")
-        sys.exit(1)
 
     records = load_records(all_findings_jsonl)
-
-    total_findings = len(records)
-    unique_alerts = len(set(r.get("alert_name") for r in records if r.get("alert_name")))
-    new_findings = count_jsonl(new_findings_jsonl)
 
     row = {
         "run_id": run_id,
         "timestamp_utc": now_utc(),
-        "total_findings": total_findings,
-        "unique_alerts": unique_alerts,
-        "new_findings": new_findings,
+        "total_findings": len(records),
+        "unique_alerts": len(set(r.get("alert_name") for r in records if r.get("alert_name"))),
+        "new_findings": count_jsonl(new_findings_jsonl),
         "new_tests_generated": tests_generated_total,
         "zap_duration_seconds": round(zap_seconds, 3),
         "pipeline_duration_seconds": round(pipeline_seconds, 3),
@@ -55,15 +48,15 @@ def summarise(all_findings_jsonl: Path,
 
     csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    with csv_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=list(row.keys())
-        )
-        writer.writeheader()
+    file_exists = csv_path.exists()
+
+    with csv_path.open("a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=row.keys())
+        if not file_exists:
+            writer.writeheader()
         writer.writerow(row)
 
-    print("Run summary written:", row)
+    print("Run summary appended:", row)
 
 if __name__ == "__main__":
     if len(sys.argv) < 8:
