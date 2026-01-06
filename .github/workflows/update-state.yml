@@ -1,0 +1,86 @@
+name: Update Continuous State (seen_findings.json)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update_state:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Start Juice Shop
+        run: |
+          cd apps/juice-shop
+          docker compose up -d
+
+      - name: Wait for Juice Shop
+        run: |
+          for i in {1..30}; do
+            if curl -sSf http://localhost:3000 > /dev/null; then
+              echo "Juice Shop ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Juice Shop did not become ready"
+          docker ps -a
+          exit 1
+
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: "http://localhost:3000"
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-a"
+          allow_issue_writing: false
+          fail_action: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Convert ZAP JSON to JSONL
+        run: |
+          mkdir -p dataset/specs
+          python scanner/zap/parse_zap_json.py \
+            report_json.json \
+            dataset/specs/zap_findings.jsonl \
+            "${{ github.run_id }}"
+
+      - name: Select new findings (updates state file)
+        run: |
+          mkdir -p dataset/state
+          python scripts/select_new_findings.py
+
+      - name: Stop Juice Shop
+        if: always()
+        run: |
+          cd apps/juice-shop
+          docker compose down
+
+      # Create a PR containing ONLY the updated state file
+      - name: Create PR with updated seen_findings.json
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(state): update seen_findings.json"
+          title: "Update continuous state (seen findings)"
+          body: |
+            This PR updates dataset/state/seen_findings.json based on the latest ZAP scan.
+            Merge this PR to persist state across CI runs (Option B).
+          branch: "bot/update-seen-findings"
+          add-paths: |
+            dataset/state/seen_findings.json
