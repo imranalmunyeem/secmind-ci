@@ -25,7 +25,13 @@ def load_records(jsonl_path: Path) -> list[dict]:
                 records.append(json.loads(line))
     return records
 
-def summarise(all_findings_jsonl: Path, new_findings_jsonl: Path, csv_path: Path, run_id: str, tests_generated: int):
+def summarise(all_findings_jsonl: Path,
+             new_findings_jsonl: Path,
+             csv_path: Path,
+             run_id: str,
+             tests_generated_total: int,
+             zap_seconds: float,
+             pipeline_seconds: float):
     if not all_findings_jsonl.exists():
         print(f"JSONL not found: {all_findings_jsonl}")
         sys.exit(1)
@@ -42,17 +48,17 @@ def summarise(all_findings_jsonl: Path, new_findings_jsonl: Path, csv_path: Path
         "total_findings": total_findings,
         "unique_alerts": unique_alerts,
         "new_findings": new_findings,
-        "new_tests_generated": tests_generated
+        "new_tests_generated": tests_generated_total,
+        "zap_duration_seconds": round(zap_seconds, 3),
+        "pipeline_duration_seconds": round(pipeline_seconds, 3),
     }
 
     csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # IMPORTANT (Option B):
-    # This CSV is per-run and will be uploaded as artifact (not appended across runs).
     with csv_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["run_id", "timestamp_utc", "total_findings", "unique_alerts", "new_findings", "new_tests_generated"]
+            fieldnames=list(row.keys())
         )
         writer.writeheader()
         writer.writerow(row)
@@ -60,8 +66,8 @@ def summarise(all_findings_jsonl: Path, new_findings_jsonl: Path, csv_path: Path
     print("Run summary written:", row)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 6:
-        print("Usage: python summarise_run.py <all_findings_jsonl> <new_findings_jsonl> <csv> <run_id> <tests_generated_int>")
+    if len(sys.argv) < 8:
+        print("Usage: python summarise_run.py <all_findings_jsonl> <new_findings_jsonl> <csv> <run_id> <tests_generated_total_int> <zap_seconds_float> <pipeline_seconds_float>")
         sys.exit(1)
 
     summarise(
@@ -69,5 +75,7 @@ if __name__ == "__main__":
         Path(sys.argv[2]),
         Path(sys.argv[3]),
         sys.argv[4],
-        int(sys.argv[5])
+        int(sys.argv[5]),
+        float(sys.argv[6]),
+        float(sys.argv[7]),
     )

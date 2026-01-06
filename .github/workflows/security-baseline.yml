@@ -15,6 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Start pipeline timer
+        id: pipeline_timer
+        run: echo "t0=$(date +%s)" >> $GITHUB_OUTPUT
+
       - name: Start Juice Shop
         run: |
           cd apps/juice-shop
@@ -33,6 +37,10 @@ jobs:
           docker ps -a
           exit 1
 
+      - name: Start ZAP timer
+        id: zap_timer
+        run: echo "zap_t0=$(date +%s)" >> $GITHUB_OUTPUT
+
       - name: ZAP Baseline Scan (No GitHub Issues)
         uses: zaproxy/action-baseline@v0.15.0
         with:
@@ -41,6 +49,12 @@ jobs:
           cmd_options: "-a"
           allow_issue_writing: false
           fail_action: false
+
+      - name: Stop ZAP timer
+        id: zap_timer_stop
+        run: |
+          t1=$(date +%s)
+          echo "zap_t1=$t1" >> $GITHUB_OUTPUT
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -83,15 +97,26 @@ jobs:
         run: |
           pytest -q tests_generated/api
 
-      - name: Summarise run metrics (all + new + tests)
+      - name: Stop pipeline timer
+        id: pipeline_timer_stop
+        run: |
+          t1=$(date +%s)
+          echo "t1=$t1" >> $GITHUB_OUTPUT
+
+      - name: Summarise run metrics (all + new + tests + timings)
         run: |
           mkdir -p dataset/results
+          zap_seconds=$(( ${{ steps.zap_timer_stop.outputs.zap_t1 }} - ${{ steps.zap_timer.outputs.zap_t0 }} ))
+          pipeline_seconds=$(( ${{ steps.pipeline_timer_stop.outputs.t1 }} - ${{ steps.pipeline_timer.outputs.t0 }} ))
+
           python scripts/summarise_run.py \
             dataset/specs/zap_findings.jsonl \
             dataset/specs/new_findings.jsonl \
             dataset/results/runs.csv \
             "${{ github.run_id }}" \
-            "${{ steps.testcount.outputs.count }}"
+            "${{ steps.testcount.outputs.count }}" \
+            "$zap_seconds" \
+            "$pipeline_seconds"
 
       - name: Upload research artifacts
         if: always()
