@@ -13,4 +13,5 @@ This log records each CI run milestone and the purpose of changes.
 - R8: (2026-01-06) Documentation update to trigger CI.
 - R9: (2026-01-06) Documentation update to trigger CI.
 - R10: (2026-01-06) Documentation update to trigger CI.
-- R11: (2026-01-06) Documentation update to trigger CI and collect metrics.
+- R11: Documentation-only change to trigger CI for experiment repetition.
+
