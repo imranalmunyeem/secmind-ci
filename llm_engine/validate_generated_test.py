@@ -1,38 +1,53 @@
 from pathlib import Path
 import ast
+import sys
 
 ALLOWED_IMPORTS = {"requests", "pytest", "re", "json"}
 
 def validate_python_test(path: Path):
     code = path.read_text(encoding="utf-8", errors="ignore")
-
-    # Must parse
     tree = ast.parse(code)
 
-    # Must contain at least one assert statement
     has_assert = any(isinstance(n, ast.Assert) for n in ast.walk(tree))
     if not has_assert:
-        raise ValueError("Generated test has no assert statement.")
+        raise ValueError(f"{path.name}: missing assert statement")
 
-    # Validate imports
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name.split(".")[0] not in ALLOWED_IMPORTS:
-                    raise ValueError(f"Disallowed import: {alias.name}")
+                    raise ValueError(f"{path.name}: disallowed import: {alias.name}")
         if isinstance(node, ast.ImportFrom):
             mod = (node.module or "").split(".")[0]
             if mod and mod not in ALLOWED_IMPORTS:
-                raise ValueError(f"Disallowed import-from: {node.module}")
+                raise ValueError(f"{path.name}: disallowed import-from: {node.module}")
 
-    return True
+def main(target: str):
+    p = Path(target)
+
+    # If a directory is provided, validate all python files inside it
+    if p.is_dir():
+        files = sorted(p.glob("*.py"))
+        if not files:
+            print(f"No .py tests found in directory: {p}")
+            sys.exit(1)
+        for f in files:
+            validate_python_test(f)
+            print("Validation OK:", f)
+        return
+
+    # If a file is provided, validate that file
+    if p.is_file():
+        validate_python_test(p)
+        print("Validation OK:", p)
+        return
+
+    print(f"Path not found: {p}")
+    sys.exit(1)
 
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) < 2:
-        print("Usage: python validate_generated_test.py <path_to_test.py>")
-        raise SystemExit(1)
+        print("Usage: python validate_generated_test.py <file_or_directory>")
+        sys.exit(1)
 
-    p = Path(sys.argv[1])
-    validate_python_test(p)
-    print("Validation OK:", p)
+    main(sys.argv[1])
