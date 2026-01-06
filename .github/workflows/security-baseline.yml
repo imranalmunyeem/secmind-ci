@@ -53,16 +53,26 @@ jobs:
           mkdir -p dataset/specs
           python scanner/zap/parse_zap_json.py report_json.json dataset/specs/zap_findings.jsonl "${{ github.run_id }}"
 
+      - name: Summarise run metrics (JSONL -> CSV)
+        run: |
+          python scripts/summarise_run.py \
+            dataset/specs/zap_findings.jsonl \
+            dataset/results/runs.csv \
+            "${{ github.run_id }}"
+
       - name: Upload ZAP Reports + Dataset
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: zap-baseline-report-and-dataset
+
           path: |
             report_html.html
             report_json.json
             report_md.md
             dataset/specs/zap_findings.jsonl
+            dataset/results/runs.csv
+
 
       - name: Stop Juice Shop
         if: always()
