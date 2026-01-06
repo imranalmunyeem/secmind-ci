@@ -22,8 +22,19 @@ def load_jsonl(path: Path) -> list[dict]:
 def load_seen(path: Path) -> set[str]:
     if not path.exists():
         return set()
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return set(data.get("seen", []))
+
+    raw = path.read_text(encoding="utf-8").strip()
+    if not raw:
+        # Empty file -> treat as no seen findings
+        return set()
+
+    try:
+        data = json.loads(raw)
+        return set(data.get("seen", []))
+    except json.JSONDecodeError:
+        # Corrupt file -> treat as no seen findings (and overwrite later)
+        return set()
+
 
 def save_seen(path: Path, seen: set[str]):
     path.parent.mkdir(parents=True, exist_ok=True)
