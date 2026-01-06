@@ -1,6 +1,23 @@
 import json
+import hashlib
 from pathlib import Path
-from scripts.fingerprint_findings import fingerprint, load_jsonl
+
+def fingerprint(record: dict) -> str:
+    alert = (record.get("alert_name") or "").strip()
+    url = (record.get("url") or "").strip()
+    param = (record.get("param") or "").strip()
+    plugin_id = str(record.get("plugin_id") or "").strip()
+
+    key = f"{plugin_id}||{alert}||{url}||{param}"
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+def load_jsonl(path: Path) -> list[dict]:
+    records = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            if line.strip():
+                records.append(json.loads(line))
+    return records
 
 def load_seen(path: Path) -> set[str]:
     if not path.exists():
