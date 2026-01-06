@@ -1,4 +1,4 @@
-name: Security Baseline (ZAP)
+name: Security Baseline (ZAP) + Dataset + LLM Test (1)
 
 on:
   push:
@@ -10,6 +10,13 @@ on:
 jobs:
   zap_baseline:
     runs-on: ubuntu-latest
+
+    # These must be set in GitHub Repo -> Settings -> Secrets and variables -> Actions
+    # - LLM_API_KEY
+    # - LLM_API_URL
+    env:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_API_URL: ${{ secrets.LLM_API_URL }}
 
     steps:
       - name: Checkout
@@ -34,6 +41,9 @@ jobs:
           docker ps -a
           exit 1
 
+      # ZAP baseline scan:
+      # - allow_issue_writing: false -> prevents GitHub Issues creation (avoids 403)
+      # - fail_action: false -> keeps workflow green even with WARNs (you still get reports)
       - name: ZAP Baseline Scan (No GitHub Issues)
         uses: zaproxy/action-baseline@v0.15.0
         with:
@@ -48,38 +58,47 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Generate dataset (ZAP JSON -> JSONL)
-        run: |
-          mkdir -p dataset/specs
-          python scanner/zap/parse_zap_json.py report_json.json dataset/specs/zap_findings.jsonl "${{ github.run_id }}"
-
-      - name: Summarise run metrics (JSONL -> CSV)
-        run: |
-          python scripts/summarise_run.py \
-            dataset/specs/zap_findings.jsonl \
-            dataset/results/runs.csv \
-            "${{ github.run_id }}"
-
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Generate 1 regression test from findings (baseline generator)
+      # 1) Convert ZAP JSON -> JSONL dataset
+      - name: Generate dataset (ZAP JSON -> JSONL)
         run: |
-          python llm_engine/generate_one_test.py
+          mkdir -p dataset/specs
+          python scanner/zap/parse_zap_json.py report_json.json dataset/specs/zap_findings.jsonl "${{ github.run_id }}"
 
+      # 2) Summarise JSONL -> runs.csv (one row per CI run)
+      - name: Summarise run metrics (JSONL -> CSV)
+        run: |
+          mkdir -p dataset/results
+          python scripts/summarise_run.py \
+            dataset/specs/zap_findings.jsonl \
+            dataset/results/runs.csv \
+            "${{ github.run_id }}"
+
+      # 3) Generate ONE LLM-based regression test (writes into tests_generated/api/)
+      - name: Generate 1 regression test from findings (LLM)
+        run: |
+          python llm_engine/generate_one_test_llm.py
+
+      # 4) Validate the generated test before running (prevents broken CI)
+      - name: Validate LLM-generated test
+        run: |
+          python llm_engine/validate_generated_test.py tests_generated/api/test_llm_*.py
+
+      # 5) Run generated tests
       - name: Run generated tests
         run: |
           pytest -q tests_generated/api
 
-
-      - name: Upload ZAP Reports + Dataset
+      # Upload everything needed for research evidence
+      - name: Upload Reports + Dataset + Metrics + Generated Tests
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zap-baseline-report-and-dataset
-
+          name: security-artifacts
           path: |
             report_html.html
             report_json.json
@@ -87,7 +106,6 @@ jobs:
             dataset/specs/zap_findings.jsonl
             dataset/results/runs.csv
             tests_generated/
-
 
       - name: Stop Juice Shop
         if: always()
