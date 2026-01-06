@@ -8,7 +8,8 @@ def slugify(text: str) -> str:
     return text.strip("_")[:60] or "alert"
 
 def main():
-    specs_path = Path("dataset/specs/zap_findings.jsonl")
+    specs_path = Path("dataset/specs/new_findings.jsonl")
+
     out_dir = Path("tests_generated/api")
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -22,8 +23,11 @@ def main():
                 first = json.loads(line)
                 break
 
+
     if not first:
-        raise RuntimeError("No findings found in JSONL.")
+        print("No NEW findings found. No test generated.")
+        return
+
 
     url = first.get("url") or "http://localhost:3000"
     alert = first.get("alert_name") or "Unknown Alert"

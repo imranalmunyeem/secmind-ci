@@ -1,4 +1,4 @@
-name: Security Baseline + Dataset + Metrics (Artifact-Based, Professional)
+name: Security Baseline + Continuous Regression (Artifacts)
 
 on:
   push:
@@ -60,13 +60,40 @@ jobs:
             dataset/specs/zap_findings.jsonl \
             "${{ github.run_id }}"
 
-      - name: Summarise run metrics (JSONL -> runs.csv)
+      # Continuous behaviour: determine NEW findings and update seen_findings.json in repo
+      - name: Select new findings (continuous)
+        run: |
+          mkdir -p dataset/state
+          python scripts/select_new_findings.py
+
+      # Generate tests ONLY for new findings
+      - name: Generate regression test for new finding (if any)
+        run: |
+          mkdir -p tests_generated/api
+          python llm_engine/generate_one_test.py
+
+      - name: Count generated tests
+        id: testcount
+        run: |
+          echo "count=$(python scripts/count_generated_tests.py)" >> $GITHUB_OUTPUT
+
+      - name: Validate generated tests
+        run: |
+          python llm_engine/validate_generated_test.py tests_generated/api
+
+      - name: Run generated tests
+        run: |
+          pytest -q tests_generated/api
+
+      - name: Summarise run metrics (all + new + tests)
         run: |
           mkdir -p dataset/results
           python scripts/summarise_run.py \
             dataset/specs/zap_findings.jsonl \
+            dataset/specs/new_findings.jsonl \
             dataset/results/runs.csv \
-            "${{ github.run_id }}"
+            "${{ github.run_id }}" \
+            "${{ steps.testcount.outputs.count }}"
 
       - name: Upload research artifacts
         if: always()
@@ -78,7 +105,10 @@ jobs:
             report_json.json
             report_md.md
             dataset/specs/zap_findings.jsonl
+            dataset/specs/new_findings.jsonl
+            dataset/state/seen_findings.json
             dataset/results/runs.csv
+            tests_generated/
 
       - name: Stop Juice Shop
         if: always()
