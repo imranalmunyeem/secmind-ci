@@ -2,6 +2,8 @@ from pathlib import Path
 import ast
 import sys
 
+print("=== VALIDATOR VERSION: DIR_MODE_V1 ===")  # <-- This must appear in CI logs
+
 ALLOWED_IMPORTS = {"requests", "pytest", "re", "json"}
 
 def validate_python_test(path: Path):
@@ -25,7 +27,6 @@ def validate_python_test(path: Path):
 def main(target: str):
     p = Path(target)
 
-    # If a directory is provided, validate all python files inside it
     if p.is_dir():
         files = sorted(p.glob("*.py"))
         if not files:
@@ -36,7 +37,6 @@ def main(target: str):
             print("Validation OK:", f)
         return
 
-    # If a file is provided, validate that file
     if p.is_file():
         validate_python_test(p)
         print("Validation OK:", p)
