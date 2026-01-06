@@ -60,19 +60,19 @@ jobs:
             dataset/specs/zap_findings.jsonl \
             "${{ github.run_id }}"
 
-      # Continuous behaviour: determine NEW findings and update seen_findings.json in repo
+      # Continuous behaviour: determine NEW findings using committed state
       - name: Select new findings (continuous)
         run: |
           mkdir -p dataset/state
           python scripts/select_new_findings.py
 
-      # Generate tests ONLY for new findings
-      - name: Generate regression test for new finding (if any)
+      # ✅ UPGRADED: generate tests for ALL new findings (not just one)
+      - name: Generate regression tests from NEW findings
         run: |
           mkdir -p tests_generated/api
-          python llm_engine/generate_one_test.py
+          python llm_engine/generate_tests_from_new_findings.py
 
-      - name: Count generated tests
+      - name: Count total generated tests
         id: testcount
         run: |
           echo "count=$(python scripts/count_generated_tests.py)" >> $GITHUB_OUTPUT
