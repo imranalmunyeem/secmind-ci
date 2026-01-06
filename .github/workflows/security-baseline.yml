@@ -86,7 +86,7 @@ jobs:
       # 4) Validate the generated test before running (prevents broken CI)
       - name: Validate LLM-generated test
         run: |
-          python llm_engine/validate_generated_test.py tests_generated/api/test_llm_*.py
+          python llm_engine/validate_generated_test.py tests_generated/api
 
       # 5) Run generated tests
       - name: Run generated tests
