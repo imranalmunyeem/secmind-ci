@@ -60,13 +60,11 @@ jobs:
             dataset/specs/zap_findings.jsonl \
             "${{ github.run_id }}"
 
-      # Continuous behaviour: determine NEW findings using committed state
       - name: Select new findings (continuous)
         run: |
           mkdir -p dataset/state
           python scripts/select_new_findings.py
 
-      # ✅ UPGRADED: generate tests for ALL new findings (not just one)
       - name: Generate regression tests from NEW findings
         run: |
           mkdir -p tests_generated/api

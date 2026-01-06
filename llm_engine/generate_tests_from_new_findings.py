@@ -8,7 +8,10 @@ def fingerprint(record: dict) -> str:
     url = (record.get("url") or "").strip()
     param = (record.get("param") or "").strip()
     plugin_id = str(record.get("plugin_id") or "").strip()
-    key = f"{plugin_id}||{alert}||{url}||{param}"
+    method = (record.get("method") or "").strip()
+    evidence = (record.get("evidence") or "").strip()
+
+    key = f"{plugin_id}||{alert}||{method}||{url}||{param}||{evidence}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 def slugify(text: str) -> str:
@@ -34,6 +37,10 @@ def write_test(record: dict, out_dir: Path) -> Path:
 
     out_file = out_dir / f"test_{name}_{fp}.py"
 
+    # If the test already exists, don't overwrite (idempotent)
+    if out_file.exists():
+        return out_file
+
     code = f'''"""
 AUTO-GENERATED SECURITY REGRESSION TEST (CONTINUOUS MODE)
 alert_name: {alert}
@@ -46,9 +53,6 @@ import requests
 def test_{name}_{fp}():
     r = requests.get("{url}", timeout=10)
     print("status:", r.status_code)
-    print("headers:", dict(r.headers))
-
-    # Deterministic baseline assertion: service must not error 5xx
     assert r.status_code < 500, f"Server error: {{r.status_code}}"
 '''
     out_file.write_text(code, encoding="utf-8")
@@ -67,11 +71,15 @@ def main():
 
     created = 0
     for r in records:
+        before = set(out_dir.glob("*.py"))
         out_file = write_test(r, out_dir)
-        created += 1
-        print("Generated:", out_file)
+        after = set(out_dir.glob("*.py"))
+        if after != before:
+            created += 1
+        print("Ensured test:", out_file)
 
-    print(f"Generated {created} test(s) from NEW findings.")
+    print(f"Generated {created} new test file(s) from NEW findings.")
+    print(f"Total test files now: {len(list(out_dir.glob('*.py')))}")
 
 if __name__ == "__main__":
     main()
