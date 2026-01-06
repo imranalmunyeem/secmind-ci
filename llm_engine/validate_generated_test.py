@@ -2,8 +2,6 @@ from pathlib import Path
 import ast
 import sys
 
-print("=== VALIDATOR VERSION: DIR_MODE_V1 ===")  # <-- This must appear in CI logs
-
 ALLOWED_IMPORTS = {"requests", "pytest", "re", "json"}
 
 def validate_python_test(path: Path):
