@@ -6,6 +6,7 @@ on:
 jobs:
   update_state:
     runs-on: ubuntu-latest
+
     permissions:
       contents: write
       pull-requests: write
@@ -72,7 +73,6 @@ jobs:
           cd apps/juice-shop
           docker compose down
 
-      # Create a PR containing ONLY the updated state file
       - name: Create PR with updated seen_findings.json
         uses: peter-evans/create-pull-request@v6
         with:
