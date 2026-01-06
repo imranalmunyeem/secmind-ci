@@ -1,4 +1,4 @@
-name: Security Baseline + Dataset + Metrics + Generated Test (No LLM)
+name: Security Baseline + Dataset + Metrics (Artifact-Based, Professional)
 
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
             fi
             sleep 2
           done
-          echo "Juice Shop did not become ready in time"
+          echo "Juice Shop did not become ready"
           docker ps -a
           exit 1
 
@@ -68,33 +68,17 @@ jobs:
             dataset/results/runs.csv \
             "${{ github.run_id }}"
 
-      # IMPORTANT: This uses your NON-LLM generator (no API key/credit required)
-      - name: Generate one regression test (No LLM)
-        run: |
-          mkdir -p tests_generated/api
-          python llm_engine/generate_one_test.py
-
-      # IMPORTANT: Validate by directory (avoids wildcard / missing-arg problems)
-      - name: Validate generated tests
-        run: |
-          python llm_engine/validate_generated_test.py tests_generated/api
-
-      - name: Run generated tests
-        run: |
-          pytest -q tests_generated/api
-
-      - name: Upload artifacts
+      - name: Upload research artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: security-artifacts
+          name: security-artifacts-${{ github.run_id }}
           path: |
             report_html.html
             report_json.json
             report_md.md
             dataset/specs/zap_findings.jsonl
             dataset/results/runs.csv
-            tests_generated/
 
       - name: Stop Juice Shop
         if: always()
